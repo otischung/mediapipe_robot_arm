@@ -80,7 +80,7 @@ def main():
         """
         Ref: https://github.com/google/mediapipe/blob/master/docs/solutions/pose.md
         Ref: https://developers.google.com/mediapipe/solutions/vision/pose_landmarker
-        result.pose_landmarks
+        result.pose_landmarks [x, y, z, v]
         A list of pose landmarks. Each landmark consists of the following:
         
         x and y:
@@ -93,8 +93,8 @@ def main():
             A value in [0.0, 1.0] indicating the likelihood of the landmark being visible (present and not
             occluded) in the image.
             
-                             6 5 4     1 2 3
-                          8         0         7
+        [0, 0, x, x]         6 5 4     1 2 3        [1, 0, x, x]
+        RIGHT             8         0         7             LEFT
                                  10---9
                                  
           20    22                                    21   19
@@ -115,7 +115,7 @@ def main():
                              \           /
                              28         27
                             /  \       /  \ 
-                           30---32    29---31
+        [1, 0, x, x]       30---32    29---31       [1, 1, x, x]
         0 - nose
         1 - left eye (inner)
         2 - left eye
