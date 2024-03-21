@@ -15,8 +15,9 @@ def clear_screen():
         os.system("clear")
 
 
-def print_landmark(joint_list: list):
+def print_landmark(fps_cnt: int, joint_list: list):
     clear_screen()
+    print(f"FPS Count: {fps_cnt}")
     for i in range(len(joint_list)):
         print(f"{i:02d}: {joint_list[i]}")
 
@@ -24,10 +25,6 @@ def print_landmark(joint_list: list):
 ### angle
 def dotproduct(v1, v2):
     return np.dot(v1, v2)
-
-
-def cross(v1, v2):
-    return np.cross(v1, v2)
 
 
 def length(v):
@@ -39,11 +36,12 @@ def angle(v1, v2):
 
 
 def main():
-    absl.logging.set_verbosity(absl.logging.ERROR)
-    absl.logging.get_absl_handler().python_handler.stream = sys.stdout
+    # absl.logging.set_verbosity(absl.logging.ERROR)
+    # absl.logging.get_absl_handler().python_handler.stream = sys.stdout
 
     video_name = 'video.avi'
     txt_name = 'video.txt'
+    fps_cnt = 0
 
     angle1, a1_last, a1_f = 0, 0, 0
     angle2, a2_last, a2_f = 0, 0, 0
@@ -61,8 +59,6 @@ def main():
                        model_complexity=1)
 
     mpDraw = mp.solutions.drawing_utils
-    poseLmsStyle = mpDraw.DrawingSpec(color=(0, 0, 0), thickness=3)
-    poseConStyle = mpDraw.DrawingSpec(color=(255, 255, 255), thickness=5)
 
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))  # 影像寬度
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))  # 影像高度
@@ -75,6 +71,7 @@ def main():
         if not ret:
             break
 
+        fps_cnt += 1
         imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         result = pose.process(imgRGB)
         """
@@ -167,8 +164,7 @@ def main():
             send_3 = 0
             send_4 = 0
             send_5 = 0
-            # print(f"\r{joint_list[11]}, {joint_list[13]}", end=" ")
-            print_landmark(joint_list)
+            print_landmark(fps_cnt, joint_list)
 
             # 11: lshoulder / 12: rshoulder / 13: elbow / 15: wrist / 21: thumb / 17: pinky / 19: index / 23: hip
             # 肩膀->手肘
@@ -198,137 +194,11 @@ def main():
 
             #### calculate angle
             if joint_list[12][3] > 0.8 and joint_list[13][3] > 0.8 and joint_list[15][3] > 0.8:
-                index_pinky = cross(index, pinky)
-                arm_fore = cross((-arm[0], -arm[1], -arm[2]), forearm)
-
-                # J1角度
-                J1 = round(math.degrees(angle((arm[0], 0, arm[2]), (1, 0, 0))), 3)
-                # J1方向
-                dir_a1 = dotproduct((0, 0, arm[2]), (0, 0, 1))
-                if dir_a1 != 0:
-                    dir_a1 /= abs(dir_a1)
-                    angle1 = J1 * dir_a1
-                else:
-                    angle1 = J1 * dir_a1
-                # J1: -165~+165
-                if angle1 > 163:
-                    angle1 = 163
-                elif angle1 < -163:
-                    angle1 = -163
-                else:
-                    pass
-                if abs(abs(angle1) - abs(a1_last)) <= 1:
-                    pass
-                else:
-                    a1_f = angle1
-                    send_1 += 1
-                a1_last = angle1
-
-                # J2角度: -125 ~ +85->70
-                J2 = round(math.degrees(angle((shoulder[0], shoulder[1], 0), (arm[0], arm[1], 0))), 1)
-                # J2方向
-                if joint_list[13][1] > joint_list[12][1]:
-                    angle2 = -J2
-                elif joint_list[13][1] <= joint_list[12][1]:
-                    angle2 = J2
-
-                if angle2 > 70:
-                    angle2 = 70
-                elif angle2 < -60:
-                    angle2 = -60
-                else:
-                    pass
-                if abs(abs(angle2) - abs(a2_last)) <= 1:
-                    send_2 = 0
-                else:
-                    a2_f = angle2
-                    send_2 += 1
-                a2_last = angle2
-
-                # J3角度: -55 ~ +185
-                J3 = round(math.degrees(angle((arm[0], arm[1], 0), (forearm[0], forearm[1], 0))), 1)
-                # J3方向
-                if joint_list[15][1] < joint_list[13][1]:
-                    angle3 = J3 + 90
-                elif joint_list[15][1] >= joint_list[13][1]:
-                    angle3 = -J3 + 90
-
-                if angle3 > 180:
-                    angle3 = 180
-                elif angle3 < -45:
-                    angle3 = -45
-                else:
-                    pass
-                if abs(abs(angle3) - abs(a3_last)) <= 1:
-                    send_3 = 0
-                else:
-                    a3_f = angle3
-                    send_3 += 1
-                a3_last = angle3
-
-                # J4角度: -190 ~ +190
-                J4 = round(math.degrees(angle(index_pinky, arm_fore)), 1)
-                # J4方向
-                if J4 == 0:
-                    angle4 = -J4
-                elif J4 == 180:
-                    angle4 = J4
-                else:
-                    cross_hand_elb = cross(index_pinky, arm_fore)
-                    dir_a4 = dotproduct(cross_hand_elb, forearm)
-                    dir_a4 /= abs(dir_a4)
-                    angle4 = J4 * dir_a4
-
-                if angle4 > 90:
-                    angle4 = 90
-                elif angle4 < -90:
-                    angle4 = -90
-                else:
-                    pass
-                if abs(abs(angle4) - abs(a4_last)) <= 1:
-                    pass
-                else:
-                    a4_f = angle4
-                    send_4 += 1
-                a4_last = angle4
-
-                # J5角度: -115 ~ +115
-                J5 = round(math.degrees(angle(forearm, index)), 1)
-                # J5方向
-                if joint_list[19][1] >= joint_list[15][1]:
-                    angle5 = -J5
-                elif joint_list[19][1] < joint_list[15][1]:
-                    angle5 = J5
-
-                if angle5 > 110:
-                    angle5 = 110
-                elif angle5 < -110:
-                    angle5 = -110
-                else:
-                    pass
-                if abs(abs(angle5) - abs(a5_last)) <= 1:
-                    pass
-                else:
-                    a5_f = angle5
-                    send_5 += 1
-                a5_last = angle5
-
-                # J6
-                angle6 = 0
-                a6_f = angle6
-                a6_last = angle6
-
-            send_ = str(a1_f) + ';' + str(a2_f) + ';' + str(a3_f) + ';' + str(a4_f) + ';' + str(a5_f) + ';' + str(a6_f)
-            if send_2 and send_3 and send_5 > 0:
-                # print('-----send:', send_)
-                send_switch = 0
-                # message, address = receive_socket.recvfrom(1024)
-                # msg = message.decode().split(";")
-                # jRot = [msg[0], msg[1], msg[2], msg[3], msg[4], msg[5]]
-                # print("receive: ", jRot)
-                with open(txt_name, 'a') as file:
-                    file.write(send_)
-                    file.write('\n')
+                pass
+        else:
+            clear_screen()
+            print(f"FPS Count: {fps_cnt}")
+            print("Error, pose detection failed.", file=sys.stderr)
 
         out.write(img)
         cv2.imshow('Robot Arm', img)
