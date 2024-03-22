@@ -1,23 +1,37 @@
 import cv2
+import math
 import mediapipe as mp
+import numpy as np
 import os
 import sys
-import numpy as np
-import math
-import absl.logging
+import time
 
 
 def clear_screen():
-    print(sys.platform)
+    """
+    Clear the entire terminal. This function supports multiple platforms including Windows and Linux.
+    """
     if sys.platform == "win32":
         os.system("cls")
     elif sys.platform == "linux" or sys.platform == "darwin":
         os.system("clear")
 
 
-def print_landmark(fps_cnt: int, joint_list: list):
+def print_landmark(fps_cnt: int, fps: float, joint_list: list):
+    """
+    This function prints the detected 33 landmarks.
+
+    Parameters
+    ----------
+    fps_cnt: int
+        The count of frames.
+    fps: float
+        The frames per second.
+    joint_list: list
+        The list of landmarks
+    """
     clear_screen()
-    print(f"FPS Count: {fps_cnt}")
+    print(f"FPS Count: {fps_cnt} at FPS: {fps: .02f}Hz")
     for i in range(len(joint_list)):
         print(f"{i:02d}: {joint_list[i]}")
 
@@ -39,20 +53,17 @@ def main():
     # absl.logging.set_verbosity(absl.logging.ERROR)
     # absl.logging.get_absl_handler().python_handler.stream = sys.stdout
 
-    video_name = 'video.avi'
-    txt_name = 'video.txt'
+    video_name = "result.mp4"
+    txt_name = 'landmarks.txt'
     fps_cnt = 0
-
-    angle1, a1_last, a1_f = 0, 0, 0
-    angle2, a2_last, a2_f = 0, 0, 0
-    angle3, a3_last, a3_f = 0, 0, 0
-    angle4, a4_last, a4_f = 0, 0, 0
-    angle5, a5_last, a5_f = 0, 0, 0
-    angle6, a6_last, a6_f = 0, 0, 0
+    prev_time = time.time()
 
     ## mediapipe
     # cap = cv2.VideoCapture(2, cv2.CAP_DSHOW)
-    cap = cv2.VideoCapture(4)
+    cap = cv2.VideoCapture(2)
+    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    # cap.set(cv2.CAP_PROP_FPS, 60)
 
     mpPose = mp.solutions.pose
     pose = mpPose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5, static_image_mode=False,
@@ -148,57 +159,117 @@ def main():
         32 - right foot index
         """
 
+        # If mediapipe detects landmarks successfully.
         if result.pose_landmarks:
+            # Draw the landmarks into the video.
             mpDraw.draw_landmarks(img, result.pose_landmarks, mpPose.POSE_CONNECTIONS)
-            joint = ''
+            # Make pose_landmarks become 2D array.
             joint_list = []
+            # For each x, y, z, visibility.
             for data_point in result.pose_landmarks.landmark:
+                # Make x, y, z, visibility to become 1D array.
                 point_list = []
                 point_list.append(round(float(data_point.x), 3))
                 point_list.append(round(float(data_point.y), 3))
                 point_list.append(round(float(data_point.z), 3))
                 point_list.append(round(float(data_point.visibility), 3))
+                # Append this 1D array to the 2D array.
                 joint_list.append(point_list)
-            send_1 = 0
-            send_2 = 0
-            send_3 = 0
-            send_4 = 0
-            send_5 = 0
-            print_landmark(fps_cnt, joint_list)
 
-            # 11: lshoulder / 12: rshoulder / 13: elbow / 15: wrist / 21: thumb / 17: pinky / 19: index / 23: hip
-            # 肩膀->手肘
-            arm = (joint_list[13][0] - joint_list[11][0], joint_list[13][1] - joint_list[11][1],
-                   joint_list[13][2] - joint_list[11][2])
-            # 手肘->手腕
-            forearm = (joint_list[15][0] - joint_list[13][0], joint_list[15][1] - joint_list[13][1],
-                       joint_list[15][2] - joint_list[13][2])
             # 左右肩
-            shoulder = (joint_list[11][0] - joint_list[12][0], joint_list[11][1] - joint_list[12][1],
-                        joint_list[11][2] - joint_list[12][2])
+            shoulder = (
+                joint_list[11][0] - joint_list[12][0],
+                joint_list[11][1] - joint_list[12][1],
+                joint_list[11][2] - joint_list[12][2]
+            )
+            # 肩膀 -> 手肘 (上臂)
+            larm = (
+                joint_list[13][0] - joint_list[11][0],
+                joint_list[13][1] - joint_list[11][1],
+                joint_list[13][2] - joint_list[11][2]
+            )
+            # 手肘 -> 手腕 (前臂)
+            lforearm = (
+                joint_list[15][0] - joint_list[13][0],
+                joint_list[15][1] - joint_list[13][1],
+                joint_list[15][2] - joint_list[13][2]
+            )
             # 食指
-            index = (joint_list[19][0] - joint_list[15][0], joint_list[19][1] - joint_list[15][1],
-                     joint_list[19][2] - joint_list[15][2])
+            lindex = (
+                joint_list[19][0] - joint_list[15][0],
+                joint_list[19][1] - joint_list[15][1],
+                joint_list[19][2] - joint_list[15][2]
+            )
             # 小指
-            pinky = (joint_list[17][0] - joint_list[15][0], joint_list[17][1] - joint_list[15][1],
-                     joint_list[17][2] - joint_list[15][2])
+            lpinky = (
+                joint_list[17][0] - joint_list[15][0],
+                joint_list[17][1] - joint_list[15][1],
+                joint_list[17][2] - joint_list[15][2]
+            )
             # 手肘->食指
-            elbow_index = (joint_list[19][0] - joint_list[13][0], joint_list[19][1] - joint_list[13][1],
-                           joint_list[19][2] - joint_list[13][2])
+            lelbow_index = (
+                joint_list[19][0] - joint_list[13][0],
+                joint_list[19][1] - joint_list[13][1],
+                joint_list[19][2] - joint_list[13][2]
+            )
             # 手肘->拇指
-            elbow_thumb = (joint_list[21][0] - joint_list[13][0], joint_list[21][1] - joint_list[13][1],
-                           joint_list[21][2] - joint_list[13][2])
-            # 肩膀->骨盆
-            hip_shou = (joint_list[12][0] - joint_list[23][0], joint_list[12][1] - joint_list[23][1],
-                        joint_list[12][2] - joint_list[23][2])
+            lelbow_thumb = (
+                joint_list[21][0] - joint_list[13][0],
+                joint_list[21][1] - joint_list[13][1],
+                joint_list[21][2] - joint_list[13][2]
+            )
+            # 肩膀 -> 手肘 (上臂)
+            rarm = (
+                joint_list[14][0] - joint_list[12][0],
+                joint_list[14][1] - joint_list[12][1],
+                joint_list[14][2] - joint_list[12][2]
+            )
+            # 手肘 -> 手腕 (前臂)
+            rforearm = (
+                joint_list[16][0] - joint_list[14][0],
+                joint_list[16][1] - joint_list[14][1],
+                joint_list[16][2] - joint_list[14][2]
+            )
+            # 食指
+            rindex = (
+                joint_list[20][0] - joint_list[16][0],
+                joint_list[20][1] - joint_list[16][1],
+                joint_list[20][2] - joint_list[16][2]
+            )
+            # 小指
+            rpinky = (
+                joint_list[18][0] - joint_list[16][0],
+                joint_list[18][1] - joint_list[16][1],
+                joint_list[18][2] - joint_list[16][2]
+            )
+            # 手肘->食指
+            relbow_index = (
+                joint_list[20][0] - joint_list[14][0],
+                joint_list[20][1] - joint_list[14][1],
+                joint_list[20][2] - joint_list[14][2]
+            )
+            # 手肘->拇指
+            relbow_thumb = (
+                joint_list[22][0] - joint_list[14][0],
+                joint_list[22][1] - joint_list[14][1],
+                joint_list[22][2] - joint_list[14][2]
+            )
 
             #### calculate angle
             if joint_list[12][3] > 0.8 and joint_list[13][3] > 0.8 and joint_list[15][3] > 0.8:
                 pass
+            cur_time = time.time()
+            fps = 1 / (cur_time - prev_time)
+            print_landmark(fps_cnt, fps, joint_list)
+            prev_time = cur_time
         else:
+            cur_time = time.time()
+            fps = 1 / (cur_time - prev_time)
+            print_landmark(fps_cnt, fps, joint_list)
             clear_screen()
-            print(f"FPS Count: {fps_cnt}")
+            print(f"FPS Count: {fps_cnt} at FPS: {fps: .02f}Hz")
             print("Error, pose detection failed.", file=sys.stderr)
+            prev_time = cur_time
 
         out.write(img)
         cv2.imshow('Robot Arm', img)
