@@ -5,6 +5,7 @@ import numpy as np
 import os
 import sys
 import time
+from typing import NamedTuple
 
 
 def clear_screen():
@@ -49,48 +50,19 @@ def angle(v1, v2):
     return math.acos(dotproduct(v1, v2) / (length(v1) * length(v2)))
 
 
-def main():
-    # absl.logging.set_verbosity(absl.logging.ERROR)
-    # absl.logging.get_absl_handler().python_handler.stream = sys.stdout
+def landmark2list(landmark: NamedTuple) -> list:
+    """
+    Make pose_landmarks become 2D array.
 
-    video_name = "result.mp4"
-    txt_name = 'landmarks.txt'
-    fps_cnt = 0
-    prev_time = time.time()
-
-    ## mediapipe
-    # cap = cv2.VideoCapture(2, cv2.CAP_DSHOW)
-    cap = cv2.VideoCapture(2)
-    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-    # cap.set(cv2.CAP_PROP_FPS, 60)
-
-    mpPose = mp.solutions.pose
-    pose = mpPose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5, static_image_mode=False,
-                       model_complexity=1)
-
-    mpDraw = mp.solutions.drawing_utils
-
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))  # 影像寬度
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))  # 影像高度
-
-    ## save realtime video
-    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-    out = cv2.VideoWriter(video_name, fourcc, 15.0, (width, height))
-    while True:
-        ret, img = cap.read()
-        if not ret:
-            break
-
-        fps_cnt += 1
-        imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        result = pose.process(imgRGB)
-        """
+    Parameters
+    ----------
+    landmark: NamedTuple
+        The original format from mediapipe.solutions.pose.Pose.process
         Ref: https://github.com/google/mediapipe/blob/master/docs/solutions/pose.md
-        Ref: https://developers.google.com/mediapipe/solutions/vision/pose_landmarker
-        result.pose_landmarks [x, y, z, v]
+
+        result.pose_landmarks [x, y, z, visibility]
         A list of pose landmarks. Each landmark consists of the following:
-        
+
         x and y:
             Landmark coordinates normalized to [0.0, 1.0] by the image width and height respectively.
         z:
@@ -100,29 +72,62 @@ def main():
         visibility:
             A value in [0.0, 1.0] indicating the likelihood of the landmark being visible (present and not
             occluded) in the image.
-            
+
+    Returns
+    -------
+    joint_list: list
+        The 2D array of type [[x, y, z, visibility (v)], [x2, y2, z2, v2], ...]
+    """
+
+    joint_list = []
+    # For each x, y, z, visibility.
+    for data_point in landmark.pose_landmarks.landmark:
+        # Make x, y, z, visibility to become 1D array.
+        point_list = []
+        point_list.append(round(float(data_point.x), 3))
+        point_list.append(round(float(data_point.y), 3))
+        point_list.append(round(float(data_point.z), 3))
+        point_list.append(round(float(data_point.visibility), 3))
+        # Append this 1D array to the 2D array.
+        joint_list.append(point_list)
+    return joint_list
+
+
+def get_landmark_loc(landmark_list: list, idx: int) -> list:
+    """
+    Get the location of the landmark by distinct index, ignoring visibility.
+
+    Parameters
+    ----------
+    landmark_list: list
+        The pose_landmarks [[x, y, z, visibility (v)], [x2, y2, z2, v2], ...]
+        from landmark2list.
+    idx: int
+        The index of the landmark.
+        Ref: https://developers.google.com/mediapipe/solutions/vision/pose_landmarker
+
         [0, 0, x, x]         6 5 4     1 2 3        [1, 0, x, x]
         RIGHT             8         0         7             LEFT
                                  10---9
-                                 
+
           20    22                                    21   19
-         /   \ /        12--------------------11        \ /   \ 
+         /   \ /        12--------------------11        \ /   \
         18---16        /  \                  /  \        15---17
                \----14/    \                /    \13----/
                             \              /
                              \            /
                               24--------23
-                             /           \ 
-                            /             \ 
-                           /               \ 
-                          /                 \ 
+                             /           \
+                            /             \
+                           /               \
+                          /                 \
                         26                   25
                           \                 /
                            \               /
                             \             /
                              \           /
                              28         27
-                            /  \       /  \ 
+                            /  \       /  \
         [1, 0, x, x]       30---32    29---31       [1, 1, x, x]
         0 - nose
         1 - left eye (inner)
@@ -157,103 +162,131 @@ def main():
         30 - right heel
         31 - left foot index
         32 - right foot index
-        """
+
+    Returns
+    -------
+    out: list
+        The 1D array in the format [x, y, z]
+    """
+    return [landmark_list[idx][0], landmark_list[idx][1], landmark_list[idx][2]]
+
+
+def vector_cal(tail: list, head: list) -> list:
+    """
+    Calculate the vector starts from tail to head.
+    The format of the vector is [x, y, z], which is the output of get_landmark_loc.
+    tail  ----->  head
+
+    Parameters
+    ----------
+    tail: list
+        The 3D list [x, y, z] shows the location of the tail.
+    head: list
+        The 3D list [x, y, z] shows the location of the head.
+
+    Returns
+    -------
+    out: list
+        The 3D list [x, y, z] shows the vector starts from tail to head.
+    """
+    return list(np.array(head) - np.array(tail))
+
+
+def vector_cal_idx(landmark_list: list, tail: int, head: int) -> list:
+    """
+    Calculate the vector starts from tail to head given index.
+    tail  ----->  head
+
+    Parameters
+    ----------
+    landmark_list: list
+        The pose_landmarks [[x, y, z, visibility (v)], [x2, y2, z2, v2], ...]
+        from landmark2list.
+    tail: int
+        The index of the tail.
+    head: int
+        The index of the head.
+
+    Returns
+    -------
+    out: list
+        The 3D list [x, y, z] shows the vector starts from tail to head.
+    """
+    return vector_cal(get_landmark_loc(landmark_list, head), get_landmark_loc(landmark_list, tail))
+
+
+def main():
+    # absl.logging.set_verbosity(absl.logging.ERROR)
+    # absl.logging.get_absl_handler().python_handler.stream = sys.stdout
+
+    video_name = "result.mp4"
+    txt_name = 'landmarks.txt'
+    fps_cnt = 0
+    prev_time = time.time()
+
+    ## mediapipe
+    # cap = cv2.VideoCapture(2, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(0)
+    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    # cap.set(cv2.CAP_PROP_FPS, 60)
+
+    mpPose = mp.solutions.pose
+    pose = mpPose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5, static_image_mode=False,
+                       model_complexity=1)
+
+    mpDraw = mp.solutions.drawing_utils
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))  # 影像寬度
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))  # 影像高度
+
+    ## save realtime video
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    out = cv2.VideoWriter(video_name, fourcc, 15.0, (width, height))
+    while True:
+        ret, img = cap.read()
+        if not ret:
+            break
+
+        fps_cnt += 1
+        imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        result = pose.process(imgRGB)
 
         # If mediapipe detects landmarks successfully.
         if result.pose_landmarks:
             # Draw the landmarks into the video.
             mpDraw.draw_landmarks(img, result.pose_landmarks, mpPose.POSE_CONNECTIONS)
             # Make pose_landmarks become 2D array.
-            joint_list = []
-            # For each x, y, z, visibility.
-            for data_point in result.pose_landmarks.landmark:
-                # Make x, y, z, visibility to become 1D array.
-                point_list = []
-                point_list.append(round(float(data_point.x), 3))
-                point_list.append(round(float(data_point.y), 3))
-                point_list.append(round(float(data_point.z), 3))
-                point_list.append(round(float(data_point.visibility), 3))
-                # Append this 1D array to the 2D array.
-                joint_list.append(point_list)
+            joint_list = landmark2list(result)
 
+            # The meaning of the index is written in the doc string of the function
+            # ``get_landmark_loc``
             # 左右肩
-            shoulder = (
-                joint_list[11][0] - joint_list[12][0],
-                joint_list[11][1] - joint_list[12][1],
-                joint_list[11][2] - joint_list[12][2]
-            )
+            shoulder = vector_cal_idx(joint_list, 11, 12)
             # 肩膀 -> 手肘 (上臂)
-            larm = (
-                joint_list[13][0] - joint_list[11][0],
-                joint_list[13][1] - joint_list[11][1],
-                joint_list[13][2] - joint_list[11][2]
-            )
+            larm = vector_cal_idx(joint_list, 11, 13)
             # 手肘 -> 手腕 (前臂)
-            lforearm = (
-                joint_list[15][0] - joint_list[13][0],
-                joint_list[15][1] - joint_list[13][1],
-                joint_list[15][2] - joint_list[13][2]
-            )
+            lforearm = vector_cal_idx(joint_list, 13, 15)
             # 食指
-            lindex = (
-                joint_list[19][0] - joint_list[15][0],
-                joint_list[19][1] - joint_list[15][1],
-                joint_list[19][2] - joint_list[15][2]
-            )
+            lindex = vector_cal_idx(joint_list, 15, 19)
             # 小指
-            lpinky = (
-                joint_list[17][0] - joint_list[15][0],
-                joint_list[17][1] - joint_list[15][1],
-                joint_list[17][2] - joint_list[15][2]
-            )
+            lpinky = vector_cal_idx(joint_list, 15, 17)
             # 手肘->食指
-            lelbow_index = (
-                joint_list[19][0] - joint_list[13][0],
-                joint_list[19][1] - joint_list[13][1],
-                joint_list[19][2] - joint_list[13][2]
-            )
+            lelbow_index = vector_cal_idx(joint_list, 13, 19)
             # 手肘->拇指
-            lelbow_thumb = (
-                joint_list[21][0] - joint_list[13][0],
-                joint_list[21][1] - joint_list[13][1],
-                joint_list[21][2] - joint_list[13][2]
-            )
+            lelbow_thumb = vector_cal_idx(joint_list, 13, 21)
             # 肩膀 -> 手肘 (上臂)
-            rarm = (
-                joint_list[14][0] - joint_list[12][0],
-                joint_list[14][1] - joint_list[12][1],
-                joint_list[14][2] - joint_list[12][2]
-            )
+            rarm = vector_cal_idx(joint_list, 12, 14)
             # 手肘 -> 手腕 (前臂)
-            rforearm = (
-                joint_list[16][0] - joint_list[14][0],
-                joint_list[16][1] - joint_list[14][1],
-                joint_list[16][2] - joint_list[14][2]
-            )
+            rforearm = vector_cal_idx(joint_list, 14, 16)
             # 食指
-            rindex = (
-                joint_list[20][0] - joint_list[16][0],
-                joint_list[20][1] - joint_list[16][1],
-                joint_list[20][2] - joint_list[16][2]
-            )
+            rindex = vector_cal_idx(joint_list, 16, 20)
             # 小指
-            rpinky = (
-                joint_list[18][0] - joint_list[16][0],
-                joint_list[18][1] - joint_list[16][1],
-                joint_list[18][2] - joint_list[16][2]
-            )
+            rpinky = vector_cal_idx(joint_list, 16, 18)
             # 手肘->食指
-            relbow_index = (
-                joint_list[20][0] - joint_list[14][0],
-                joint_list[20][1] - joint_list[14][1],
-                joint_list[20][2] - joint_list[14][2]
-            )
+            relbow_index = vector_cal_idx(joint_list, 14, 20)
             # 手肘->拇指
-            relbow_thumb = (
-                joint_list[22][0] - joint_list[14][0],
-                joint_list[22][1] - joint_list[14][1],
-                joint_list[22][2] - joint_list[14][2]
-            )
+            relbow_thumb = vector_cal_idx(joint_list, 14, 22)
 
             #### calculate angle
             if joint_list[12][3] > 0.8 and joint_list[13][3] > 0.8 and joint_list[15][3] > 0.8:
@@ -265,7 +298,6 @@ def main():
         else:
             cur_time = time.time()
             fps = 1 / (cur_time - prev_time)
-            print_landmark(fps_cnt, fps, joint_list)
             clear_screen()
             print(f"FPS Count: {fps_cnt} at FPS: {fps: .02f}Hz")
             print("Error, pose detection failed.", file=sys.stderr)
