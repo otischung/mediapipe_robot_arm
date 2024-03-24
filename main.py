@@ -31,7 +31,6 @@ def print_landmark(fps_cnt: int, fps: float, joint_list: list):
     joint_list: list
         The list of landmarks
     """
-    clear_screen()
     print(f"FPS Count: {fps_cnt} at FPS: {fps: .02f}Hz")
     for i in range(len(joint_list)):
         print(f"{i:02d}: {joint_list[i]}")
@@ -76,7 +75,11 @@ def landmark2list(landmark: NamedTuple) -> list:
     Returns
     -------
     joint_list: list
-        The 2D array of type [[x, y, z, visibility (v)], [x2, y2, z2, v2], ...]
+        The 2D array of type [
+            np.array[x, y, z, visibility (v)],
+            np.array[x2, y2, z2, v2],
+            ...
+        ]
     """
 
     joint_list = []
@@ -89,11 +92,11 @@ def landmark2list(landmark: NamedTuple) -> list:
         point_list.append(round(float(data_point.z), 3))
         point_list.append(round(float(data_point.visibility), 3))
         # Append this 1D array to the 2D array.
-        joint_list.append(point_list)
+        joint_list.append(np.array(point_list))
     return joint_list
 
 
-def get_landmark_loc(landmark_list: list, idx: int) -> list:
+def get_landmark_loc(landmark_list: list, idx: int) -> np.ndarray:
     """
     Get the location of the landmark by distinct index, ignoring visibility.
 
@@ -165,34 +168,13 @@ def get_landmark_loc(landmark_list: list, idx: int) -> list:
 
     Returns
     -------
-    out: list
+    out: np.ndarray
         The 1D array in the format [x, y, z]
     """
-    return [landmark_list[idx][0], landmark_list[idx][1], landmark_list[idx][2]]
+    return np.array([landmark_list[idx][0], landmark_list[idx][1], landmark_list[idx][2]])
 
 
-def vector_cal(tail: list, head: list) -> list:
-    """
-    Calculate the vector starts from tail to head.
-    The format of the vector is [x, y, z], which is the output of get_landmark_loc.
-    tail  ----->  head
-
-    Parameters
-    ----------
-    tail: list
-        The 3D list [x, y, z] shows the location of the tail.
-    head: list
-        The 3D list [x, y, z] shows the location of the head.
-
-    Returns
-    -------
-    out: list
-        The 3D list [x, y, z] shows the vector starts from tail to head.
-    """
-    return list(np.array(head) - np.array(tail))
-
-
-def vector_cal_idx(landmark_list: list, tail: int, head: int) -> list:
+def vector_cal_idx(landmark_list: list, tail: int, head: int) -> np.ndarray:
     """
     Calculate the vector starts from tail to head given index.
     tail  ----->  head
@@ -209,10 +191,10 @@ def vector_cal_idx(landmark_list: list, tail: int, head: int) -> list:
 
     Returns
     -------
-    out: list
-        The 3D list [x, y, z] shows the vector starts from tail to head.
+    out: np.ndarray
+        The 3D np array [x, y, z] shows the vector starts from tail to head.
     """
-    return vector_cal(get_landmark_loc(landmark_list, head), get_landmark_loc(landmark_list, tail))
+    return get_landmark_loc(landmark_list, head) - get_landmark_loc(landmark_list, tail)
 
 
 def main():
@@ -251,6 +233,7 @@ def main():
         fps_cnt += 1
         imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         result = pose.process(imgRGB)
+        clear_screen()
 
         # If mediapipe detects landmarks successfully.
         if result.pose_landmarks:
@@ -287,10 +270,22 @@ def main():
             relbow_index = vector_cal_idx(joint_list, 14, 20)
             # 手肘->拇指
             relbow_thumb = vector_cal_idx(joint_list, 14, 22)
+            # 左肩到左臀
+            lshoulder2hip = vector_cal_idx(joint_list, 11, 23)
 
-            #### calculate angle
-            if joint_list[12][3] > 0.8 and joint_list[13][3] > 0.8 and joint_list[15][3] > 0.8:
-                pass
+            ##### J1 #####
+            # 身體的法向量
+            lbody_norm = np.cross(shoulder, lshoulder2hip)
+            print(lbody_norm)
+            # 身體中軸
+            shoulder_center = (get_landmark_loc(joint_list, 11) + get_landmark_loc(joint_list, 12)) / 2
+            hip_center = (get_landmark_loc(joint_list, 23) + get_landmark_loc(joint_list, 24)) / 2
+            body_central = hip_center - shoulder_center
+            print(body_central)
+            # 身體中軸的法向量
+            body_norm_norm = np.cross(lbody_norm, body_central)
+            print(body_norm_norm)
+
             cur_time = time.time()
             fps = 1 / (cur_time - prev_time)
             print_landmark(fps_cnt, fps, joint_list)
@@ -298,7 +293,6 @@ def main():
         else:
             cur_time = time.time()
             fps = 1 / (cur_time - prev_time)
-            clear_screen()
             print(f"FPS Count: {fps_cnt} at FPS: {fps: .02f}Hz")
             print("Error, pose detection failed.", file=sys.stderr)
             prev_time = cur_time
