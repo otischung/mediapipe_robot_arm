@@ -1,4 +1,4 @@
-absl
 opencv-python
 mediapipe
 numpy
+websockets
