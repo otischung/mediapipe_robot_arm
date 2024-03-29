@@ -101,7 +101,7 @@ class TrajectoryPublisher:
         await self.connect_websocket()
         await self.advertise_topic()
         while True:
-            # TODO: CONTROLLER: Get positions and velocities from mediapipe.
+            # Get positions and velocities from mediapipe in controller.
             await self.publish_trajectory_point(self.positions, self.velocities)
             await asyncio.sleep(self.interval)
 
