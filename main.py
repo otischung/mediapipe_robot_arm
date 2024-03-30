@@ -5,6 +5,26 @@ import asyncio
 
 
 class Controller:
+    """
+    This class controls the ``pose`` class and the ``websocket`` class, aims to calculate the trajectory angles
+    and then publish them to the ros node via websocket ``rosbridge``.
+
+    Attributes
+    ----------
+    pose: class
+        The instance of the class ``pose``.
+    websocket: class
+        The instance of the class ``websocket``.
+    positions: list
+        The angles calculated by the ``pose`` class.
+    velocities: list
+        The velocities, we temporarily don't need to calculate them. Defaults to zero.
+
+    Methods
+    -------
+    run(self):
+        The main function of the controller.
+    """
     def __init__(self, pose, websocket):
         self.pose = pose
         self.websocket = websocket

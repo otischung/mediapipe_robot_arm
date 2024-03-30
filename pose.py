@@ -81,7 +81,6 @@ def landmark2list(landmark: NamedTuple) -> list:
             ...
         ]
     """
-
     joint_list = []
     # For each x, y, z, visibility.
     for data_point in landmark.pose_landmarks.landmark:
@@ -198,10 +197,50 @@ def vector_cal_idx(landmark_list: list, tail: int, head: int) -> np.ndarray:
 
 
 class PoseDetection:
+    """
+    This is the class to handle pose detection using mediapipe.
+
+    Attributes
+    ----------
+    video_name: str
+        The filename of the saved video.
+    txt_name: str
+        The filename of the output locations of landmarks.
+    fps_cnt: int
+        The total frames read from camera.
+    prev_time: float
+        The time format defined by time.time().
+        This is used to store the previous time stamp.
+    cap: cv2.VideoCapture
+        The cv2 video capturing object.
+    pose:
+        The mediapipe pose object.
+    width: int
+        The width of the frame.
+    height: int
+        The height of the frame.
+    fourcc: cv2.VideoWriter_fourcc
+    out: cv2.VideoWriter
+        The cv2 video writer object.
+
+    Methods
+    -------
+    read_image_and_process(self) -> tuple[bool, None | np.ndarray, ...]:
+        Read a single frame from camera, process the image frame, and then return the resulting landmarks.
+    draw_landmarks(self, img, landmarks):
+        Use the image and landmarks from the previous step ``read_image_and_process``
+        to draw landmarks on the given image.
+    calculation(self, joint_list: list):
+        Calculate the angle of the trajectory from the given joint list.
+    main(self) -> tuple[bool, None | list]:
+        This function provides the procedures to calculate the trajectory angles from the "single frame".
+    run(self):
+        This function provides an infinity loop to run the main function and thus calculates angles continuously.
+    """
     def __init__(self):
         self.video_name = "result.mp4"
         self.txt_name = 'landmarks.txt'
-        self.fps_cnt = 0
+        self.fps_cnt = int(0)
         self.prev_time = time.time()
 
         # mediapipe
@@ -214,8 +253,8 @@ class PoseDetection:
         self.pose = mp.solutions.pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5,
                                            static_image_mode=False, model_complexity=1)
 
-        self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))  # 影像寬度
-        self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))  # 影像高度
+        self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
         # save realtime video
         self.fourcc = cv2.VideoWriter_fourcc(*'MJPG')
@@ -242,6 +281,17 @@ class PoseDetection:
         return True, img, self.pose.process(imgRGB)
 
     def draw_landmarks(self, img, landmarks):
+        """
+        Use the image and landmarks from the previous step ``read_image_and_process``
+        to draw landmarks on the given image.
+
+        Parameters
+        ----------
+        img: np.ndarray
+            The given image.
+        landmarks: NamedTuple
+            The result landmarks provided by mediapipe.
+        """
         # Draw the landmarks into the video.
         mp.solutions.drawing_utils.draw_landmarks(img, landmarks, mp.solutions.pose.POSE_CONNECTIONS)
         self.out.write(img)
@@ -252,7 +302,20 @@ class PoseDetection:
             cv2.destroyAllWindows()
             exit(0)
 
-    def calculation(self, joint_list):
+    def calculation(self, joint_list: list):
+        """
+        Calculate the angle of the trajectory from the given joint list.
+
+        Parameters
+        ----------
+        joint_list: list
+            The given joint list.
+
+        Returns
+        -------
+        out: list
+            The trajectory angles.
+        """
         # The meaning of the index is written in the doc string of the function
         # ``get_landmark_loc``
         # 左右肩
@@ -303,6 +366,8 @@ class PoseDetection:
 
     def main(self) -> tuple[bool, None | list]:
         """
+        This function provides the procedures to calculate the trajectory angles from the "single frame".
+
         Returns
         -------
         out: tuple[bool, None | list]
@@ -342,6 +407,9 @@ class PoseDetection:
             return False, None
 
     def run(self):
+        """
+        This function provides an infinity loop to run the main function and thus calculates angles continuously.
+        """
         while True:
             cont = self.main()
             if not cont:
