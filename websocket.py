@@ -14,10 +14,15 @@ class TrajectoryPublisher:
         self.start_time_ns = time.time_ns()
         self.positions = [0.0, 0.0, 0.0, 0.0, 0.0]
         self.velocities = [0.0, 0.0, 0.0, 0.0, 0.0]
-        self.advertise_msg = {
+        self.advertise_joint_trajectory_msg = {
             "op": "advertise",
             "topic": "/joint_trajectory",
             "type": "trajectory_msgs/JointTrajectory"
+        }
+        self.advertise_joint_trajectory_point_msg = {
+            "op": "advertise",
+            "topic": "/joint_trajectory_point",
+            "type": "trajectory_msgs/JointTrajectoryPoint"
         }
 
     def create_pub_trajectory_msg(self, positions: list, velocities: list, frame_id: str = "arm") -> dict:
@@ -82,18 +87,58 @@ class TrajectoryPublisher:
         }
         return message
 
+    def create_pub_trajectory_point_msg(self, positions: list, velocities: list) -> dict:
+        """
+        This function creates a trajectory point message in python dictionary format.
+
+        Parameters
+        ----------
+        positions: list
+            The trajectory positions of the arm.
+        velocities: list
+            The trajectory velocities of the arm.
+
+        Returns
+        -------
+        message: dict
+            The corresponding trajectory_msgs/JointTrajectoryPoint message in dictionary format.
+        """
+        # Get current time
+        nsecs = int(time.time_ns())
+        # Duration time from start
+        dur_nsecs = nsecs - self.start_time_ns
+
+        dur_secs = dur_nsecs // int(1e9)
+        dur_nsecs = dur_nsecs % int(1e9)
+
+        message = {
+            "op": "publish",
+            "topic": "/joint_trajectory_point",
+            "msg": {
+                "positions": positions,
+                "velocities": velocities,
+                # "accelerations": [],
+                # "effort": [],
+                "time_from_start": {
+                    "secs": dur_secs,
+                    "nsecs": dur_nsecs
+                }
+            }
+        }
+        return message
+
     async def connect_websocket(self):
         uri = f"ws://{self.server_ip}:{self.server_port}"
         self.websocket = await websockets.connect(uri)
 
     async def advertise_topic(self):
-        await self.websocket.send(json.dumps(self.advertise_msg))
+        await self.websocket.send(json.dumps(self.advertise_joint_trajectory_point_msg))
         # print("Sent advertise message successfully.")
 
     async def publish_trajectory_point(self, pos: list, vel: list):
         # Create and publish a JointTrajectoryPoint message
         # Ref: https://docs.ros.org/en/noetic/api/trajectory_msgs/html/msg/JointTrajectory.html
-        message = self.create_pub_trajectory_msg(positions=pos, velocities=vel)
+        message = self.create_pub_trajectory_point_msg(positions=pos, velocities=vel)
         await self.websocket.send(json.dumps(message))
         # print("Sent message", json.dumps(message, indent=4))
 
