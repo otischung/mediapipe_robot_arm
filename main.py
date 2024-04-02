@@ -42,13 +42,14 @@ class Controller:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Publish JointTrajectoryPoint data via ROS2 Bridge WebSocket")
-    parser.add_argument("--ip", type=str, default="127.0.0.1", help="ROS2 Bridge server IP address")
-    parser.add_argument("--port", type=int, default=9090, help="ROS2 Bridge server port")
-    parser.add_argument("--interval", type=float, default=0.01, help="The interval between publishing data")
+    parser.add_argument("-i", "--ip", type=str, default="127.0.0.1", help="ROS2 Bridge server IP address")
+    parser.add_argument("-p", "--port", type=int, default=9090, help="ROS2 Bridge server port")
+    parser.add_argument("-d", "--interval", type=float, default=0.01, help="The interval between publishing data")
+    parser.add_argument("-c", "--camera", type=int, default=0, help="The ID of the camera. e.g. 0 for /dev/video0.")
     args = parser.parse_args()
 
     # MVC framework
-    model = pose.PoseDetection()
+    model = pose.PoseDetection(args.camera)
     view = websocket.TrajectoryPublisher(args.ip, args.port, args.interval)
     controller = Controller(model, view)
 

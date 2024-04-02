@@ -1,3 +1,4 @@
+import absl.logging
 import cv2
 import math
 import mediapipe as mp
@@ -202,6 +203,8 @@ class PoseDetection:
 
     Attributes
     ----------
+    camera_id: int
+        The ID of the camera. e.g., The ID of /dev/video0 is 0.
     video_name: str
         The filename of the saved video.
     txt_name: str
@@ -238,7 +241,8 @@ class PoseDetection:
         This function provides an infinity loop to run the main function and thus calculates angles continuously.
     """
 
-    def __init__(self):
+    def __init__(self, camera_id: int = 0):
+        self.camera_id = camera_id
         self.video_name = "result.mp4"
         self.txt_name = 'landmarks.txt'
         self.fps_cnt = int(0)
@@ -246,10 +250,13 @@ class PoseDetection:
 
         # mediapipe
         # self.cap = cv2.VideoCapture(2, cv2.CAP_DSHOW)
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(self.camera_id)
         # self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
         # self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
         # self.cap.set(cv2.CAP_PROP_FPS, 60)
+
+        absl.logging.set_verbosity(absl.logging.ERROR)
+        absl.logging.get_absl_handler().python_handler.stream = sys.stdout
 
         self.pose = mp.solutions.pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5,
                                            static_image_mode=False, model_complexity=1)
@@ -608,5 +615,5 @@ class PoseDetection:
 
 
 if __name__ == '__main__':
-    pose_detection = PoseDetection()
+    pose_detection = PoseDetection(0)
     pose_detection.run()
