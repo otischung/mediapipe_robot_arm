@@ -282,6 +282,9 @@ class PoseDetection:
         to draw landmarks on the given image.
     calculation(self, joint_list: list):
         Calculate the angle of the trajectory from the given joint list.
+    calculation_old(self, joint_list: list):
+        Calculate the angle of the trajectory from the given joint list.
+        This method is provided by the senior member.
     main(self) -> tuple[bool, None | list]:
         This function provides the procedures to calculate the trajectory angles from the "single frame".
     run(self):
