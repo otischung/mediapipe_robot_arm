@@ -19,7 +19,7 @@ def clear_screen():
         os.system("clear")
 
 
-def print_landmark(fps_cnt: int, fps: float, joint_list: list):
+def print_landmark(fps_cnt: int, fps: float, joint_list: list, left_positions: list):
     """
     This function prints the detected 33 landmarks.
 
@@ -31,22 +31,68 @@ def print_landmark(fps_cnt: int, fps: float, joint_list: list):
         The frames per second.
     joint_list: list
         The list of landmarks
+    left_positions: list
+        The list of trajectory angles for left hand.
     """
     print(f"FPS Count: {fps_cnt} at FPS: {fps: .02f}Hz")
     for i in range(len(joint_list)):
         print(f"{i:02d}: {joint_list[i]}")
+    print(f"Left trajectory angles: {np.array(left_positions)}")
 
 
 ### angle
-def dotproduct(v1, v2):
+def dotproduct(v1: np.ndarray, v2: np.ndarray) -> float:
+    """
+    Calculates the dot product between two vectors v1 and v2.
+
+    Parameters
+    ----------
+    v1: np.ndarray
+        The first given vector.
+    v2: np.ndarray
+        The second given vector.
+
+    Returns
+    -------
+    out: float
+        The dot product of the two vectors.
+    """
     return np.dot(v1, v2)
 
 
-def length(v):
+def length(v: np.ndarray) -> float:
+    """
+    Calculates the vector norm (length).
+
+    Parameters
+    ----------
+    v: np.ndarray
+        The given vector.
+
+    Returns
+    -------
+    out: float
+        The norm of the vector.
+    """
     return math.sqrt(dotproduct(v, v))
 
 
-def angle(v1, v2):
+def angle(v1: np.ndarray, v2: np.ndarray) -> float:
+    """
+    Calculates the angle between vector 1 and vector 2. The unit is in radian.
+
+    Parameters
+    ----------
+    v1: np.ndarray
+        The vector 1.
+    v2: np.ndarray
+        The vector 2.
+
+    Returns
+    -------
+    out: float
+        The angle in radian [0, pi].
+    """
     return math.acos(dotproduct(v1, v2) / (length(v1) * length(v2)))
 
 
@@ -84,7 +130,8 @@ def landmark2list(landmark: NamedTuple) -> list:
     """
     joint_list = []
     # For each x, y, z, visibility.
-    for data_point in landmark.pose_landmarks.landmark:
+    # NOTE: We use pose_world_landmarks here (2024.04.02)
+    for data_point in landmark.pose_world_landmarks.landmark:
         # Make x, y, z, visibility to become 1D array.
         point_list = []
         point_list.append(round(float(data_point.x), 3))
@@ -323,56 +370,97 @@ class PoseDetection:
         Returns
         -------
         out: list
-            The trajectory angles.
+            The trajectory angles in radian.
         """
-        # # The meaning of the index is written in the doc string of the function
-        # # ``get_landmark_loc``
-        # # 左右肩
-        # shoulder = vector_cal_idx(joint_list, 11, 12)
-        # # 肩膀 -> 手肘 (上臂)
-        # larm = vector_cal_idx(joint_list, 11, 13)
-        # # 手肘 -> 手腕 (前臂)
-        # lforearm = vector_cal_idx(joint_list, 13, 15)
-        # # 食指
-        # lindex = vector_cal_idx(joint_list, 15, 19)
-        # # 小指
-        # lpinky = vector_cal_idx(joint_list, 15, 17)
-        # # 手肘->食指
-        # lelbow_index = vector_cal_idx(joint_list, 13, 19)
-        # # 手肘->拇指
-        # lelbow_thumb = vector_cal_idx(joint_list, 13, 21)
-        # # 肩膀 -> 手肘 (上臂)
-        # rarm = vector_cal_idx(joint_list, 12, 14)
-        # # 手肘 -> 手腕 (前臂)
-        # rforearm = vector_cal_idx(joint_list, 14, 16)
-        # # 食指
-        # rindex = vector_cal_idx(joint_list, 16, 20)
-        # # 小指
-        # rpinky = vector_cal_idx(joint_list, 16, 18)
-        # # 手肘->食指
-        # relbow_index = vector_cal_idx(joint_list, 14, 20)
-        # # 手肘->拇指
-        # relbow_thumb = vector_cal_idx(joint_list, 14, 22)
-        # # 左肩到左臀
-        # lshoulder2hip = vector_cal_idx(joint_list, 11, 23)
-        #
-        # ##### J1 #####
-        # # 身體的法向量
-        # lbody_norm = np.cross(shoulder, lshoulder2hip)
-        # # print(lbody_norm)
-        #
-        # # 身體中軸
-        # shoulder_center = (get_landmark_loc(joint_list, 11) + get_landmark_loc(joint_list, 12)) / 2
-        # hip_center = (get_landmark_loc(joint_list, 23) + get_landmark_loc(joint_list, 24)) / 2
-        # body_central = hip_center - shoulder_center
-        # # print(body_central)
-        #
-        # # 身體中軸的法向量
-        # body_norm_norm = np.cross(lbody_norm, body_central)
-        # # print(body_norm_norm)
-        #
-        # return [1.57 / 2, 1.57 / 2, 1.57 / 2, 1.57 / 2, 1.57 / 2]
+        # The meaning of the index is written in the doc string of the function
+        # ``get_landmark_loc``
+        # 左右肩
+        shoulder = vector_cal_idx(joint_list, 11, 12)
+        # 肩膀 -> 手肘 (上臂)
+        larm = vector_cal_idx(joint_list, 11, 13)
+        # 手肘 -> 手腕 (前臂)
+        lforearm = vector_cal_idx(joint_list, 13, 15)
+        # 食指
+        lindex = vector_cal_idx(joint_list, 15, 19)
+        # 小指
+        lpinky = vector_cal_idx(joint_list, 15, 17)
+        # 手肘->食指
+        lelbow_index = vector_cal_idx(joint_list, 13, 19)
+        # 手肘->拇指
+        lelbow_thumb = vector_cal_idx(joint_list, 13, 21)
+        # 肩膀 -> 手肘 (上臂)
+        rarm = vector_cal_idx(joint_list, 12, 14)
+        # 手肘 -> 手腕 (前臂)
+        rforearm = vector_cal_idx(joint_list, 14, 16)
+        # 食指
+        rindex = vector_cal_idx(joint_list, 16, 20)
+        # 小指
+        rpinky = vector_cal_idx(joint_list, 16, 18)
+        # 手肘->食指
+        relbow_index = vector_cal_idx(joint_list, 14, 20)
+        # 手肘->拇指
+        relbow_thumb = vector_cal_idx(joint_list, 14, 22)
+        # 左肩到左臀
+        lshoulder2hip = vector_cal_idx(joint_list, 11, 23)
 
+        # 身體的法向量，方向向前
+        lbody_norm = np.cross(shoulder, lshoulder2hip)
+        # print(f"lbody_norm: {lbody_norm}")
+
+        # 身體中軸，方向向下
+        shoulder_center = (get_landmark_loc(joint_list, 11) + get_landmark_loc(joint_list, 12)) / 2
+        hip_center = (get_landmark_loc(joint_list, 23) + get_landmark_loc(joint_list, 24)) / 2
+        body_central = hip_center - shoulder_center
+        # print(f"body_central: {body_central}")
+
+        # 身體中軸的法向量，方向向左
+        body_norm_norm = np.cross(lbody_norm, body_central)
+        # print(f"body_norm_norm: {body_norm_norm}")
+
+        # J1 = arm - proj_{body_norm_norm}(arm)
+        j1_vec = larm - (np.dot(larm, body_norm_norm) / (length(body_norm_norm) ** 2) * body_norm_norm)
+        # Setting zero degree to point downward.
+        j1 = angle(j1_vec, np.array([0, 1, 0]))
+        # print(f"j1_vec: {j1_vec}")
+        # print(f"j1: {j1}")
+
+        j2 = angle(j1_vec, larm)
+        # print(f"j2: {j2}")
+
+        j3 = angle(-larm, lforearm)
+        # print(f"-larm: {-larm}")
+        # print(f"lforarm: {lforearm}")
+        # print(f"j3: {j3}")
+
+        # NOTE: J4 is not correct because mediapipe can't detect hand well.
+        arm_norm = np.cross(-larm, lforearm)
+        hand_norm = np.cross(lpinky, lindex)
+        j4 = angle(arm_norm, hand_norm)
+        # print(f"j4: {j4}")
+
+        # NOTE: J5 is not correct because mediapipe can't detect hand well.
+        j5 = angle(lpinky, lindex)
+        # print(f"j5: {j5}")
+
+        result = [round(j1, 3), round(j2, 3), round(j3, 3), round(j4, 3), round(j5, 3)]
+
+        return result
+
+    def calculate_old(self, joint_list: list):
+        """
+        Calculate the angle of the trajectory from the given joint list.
+        This method is provided by the senior member.
+
+        Parameters
+        ----------
+        joint_list: list
+            The given joint list.
+
+        Returns
+        -------
+        out: list
+            The trajectory angles in radian.
+        """
         angle1, a1_last, a1_f = 0, 0, 0
         angle2, a2_last, a2_f = 0, 0, 0
         angle3, a3_last, a3_f = 0, 0, 0
@@ -589,7 +677,7 @@ class PoseDetection:
             # Calculate time
             cur_time = time.time()
             fps = 1 / (cur_time - self.prev_time)
-            print_landmark(self.fps_cnt, fps, joint_list)
+            print_landmark(self.fps_cnt, fps, joint_list, positions)
             self.prev_time = cur_time
 
             return True, positions
