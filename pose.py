@@ -443,7 +443,10 @@ class PoseDetection:
         # print(f"j5: {j5}")
 
         result = [round(j1, 3), round(j2, 3), round(j3, 3), round(j4, 3), round(j5, 3)]
-
+        # Calibration for Unity
+        result = [a + b for (a, b) in
+                  zip(result, [0, 0, math.radians(-90), 0, 0])]
+        result = [round(i, 3) for i in result]
         return result
 
     def calculate_old(self, joint_list: list):
