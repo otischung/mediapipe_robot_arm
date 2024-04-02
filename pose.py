@@ -255,6 +255,7 @@ class PoseDetection:
         # self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
         # self.cap.set(cv2.CAP_PROP_FPS, 60)
 
+        # absl is the log method for mediapipe, we initialize it here.
         absl.logging.set_verbosity(absl.logging.ERROR)
         absl.logging.get_absl_handler().python_handler.stream = sys.stdout
 

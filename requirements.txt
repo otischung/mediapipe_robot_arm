@@ -1,3 +1,4 @@
+absl
 opencv-python
 mediapipe
 numpy
