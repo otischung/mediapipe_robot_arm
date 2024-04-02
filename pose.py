@@ -6,7 +6,35 @@ import numpy as np
 import os
 import sys
 import time
+from bcolors import Bcolors
+from enum import Enum
 from typing import NamedTuple
+
+
+def enum_to_dict_reverse(enum_cls: Enum) -> dict:
+    """
+    Function to convert enum to dictionary reversely.
+    For example, if we have the enum class
+    class PoseLandmark(enum.IntEnum):
+        NOSE = 0
+        LEFT_EYE_INNER = 1
+    , then the output will be
+    {0: NOSE, 1: LEFT_EYE_INNER}
+
+    Parameters
+    ----------
+    enum_cls: Enum
+        The given enumerate.
+
+    Returns
+    -------
+    out: dict
+        The reversed dictionary.
+    """
+    return {member.value: member.name for member in enum_cls}
+
+
+pose_name = enum_to_dict_reverse(mp.solutions.pose.PoseLandmark)
 
 
 def clear_screen():
@@ -19,7 +47,7 @@ def clear_screen():
         os.system("clear")
 
 
-def print_landmark(fps_cnt: int, fps: float, joint_list: list, left_positions: list):
+def print_landmark(fps_cnt: int, fps: float, joint_list: list, left_positions: list, confidence_bool: list):
     """
     This function prints the detected 33 landmarks.
 
@@ -33,14 +61,37 @@ def print_landmark(fps_cnt: int, fps: float, joint_list: list, left_positions: l
         The list of landmarks
     left_positions: list
         The list of trajectory angles for left hand.
+    confidence_bool: list
+        The list of the confidence scores for each trajectory.
     """
     print(f"FPS Count: {fps_cnt} at FPS: {fps: .02f}Hz")
+    print("------------------------------------------------------------------")
+    print("##:\tLANDMARK NAME    \t[ x      y      z      visibility]")
     for i in range(len(joint_list)):
-        print(f"{i:02d}: {joint_list[i]}")
-    print(f"Left trajectory angles: {np.array(left_positions)}")
+        # Check visibility
+        if joint_list[i][3] < 0.5:
+            print(Bcolors.FAIL, end='')
+        elif joint_list[i][3] < 0.8:
+            print(Bcolors.WARNING, end='')
+
+        # The code `print(f"{string: <x}")` means right padding white space to length x.
+        print(f"{i:02d}:\t{pose_name[i]: <17}\t{joint_list[i]}")
+
+        # Check visibility
+        if joint_list[i][3] < 0.8:
+            print(Bcolors.ENDC, end='')
+    print("Left trajectory angles:\t\t[", end='')
+    for i in range(len(left_positions)):
+        if not confidence_bool[i]:
+            print(f"{Bcolors.WARNING}{left_positions[i]}{Bcolors.ENDC}", end='')
+        else:
+            print(f"{left_positions[i]}", end='')
+        if i == len(left_positions) - 1:
+            print(']')
+        else:
+            print('\t', end='')
 
 
-### angle
 def dotproduct(v1: np.ndarray, v2: np.ndarray) -> float:
     """
     Calculates the dot product between two vectors v1 and v2.
@@ -261,6 +312,10 @@ class PoseDetection:
     prev_time: float
         The time format defined by time.time().
         This is used to store the previous time stamp.
+    confidence_bool: list[bool, bool, bool, bool, bool]
+        This Python list is used to record whether the visibility of all corresponding trajectory points'
+        mediapipe landmarks needing computation is greater than 0.8.
+        If the condition is met, then it is marked as True.
     cap: cv2.VideoCapture
         The cv2 video capturing object.
     pose:
@@ -361,7 +416,7 @@ class PoseDetection:
             cv2.destroyAllWindows()
             exit(0)
 
-    def calculation(self, joint_list: list):
+    def calculation(self, joint_list: list) -> tuple[list, list]:
         """
         Calculate the angle of the trajectory from the given joint list.
 
@@ -372,9 +427,11 @@ class PoseDetection:
 
         Returns
         -------
-        out: list
-            The trajectory angles in radian.
+        out: tuple[list, list]
+            The trajectory angles in radian and the confidence for each trajectory.
         """
+        confidence_bool = [False, False, False, False, False]
+
         # The meaning of the index is written in the doc string of the function
         # ``get_landmark_loc``
         # 左右肩
@@ -429,28 +486,33 @@ class PoseDetection:
 
         j2 = angle(j1_vec, larm)
         # print(f"j2: {j2}")
+        confidence_bool[0] = all(val > 0.8 for val in [joint_list[row][3] for row in [11, 12, 13, 23, 24]])
+        confidence_bool[1] = confidence_bool[0]
 
         j3 = angle(-larm, lforearm)
         # print(f"-larm: {-larm}")
         # print(f"lforarm: {lforearm}")
         # print(f"j3: {j3}")
+        confidence_bool[2] = all(val > 0.8 for val in [joint_list[row][3] for row in [11, 13, 15]])
 
         # NOTE: J4 is not correct because mediapipe can't detect hand well.
         arm_norm = np.cross(-larm, lforearm)
         hand_norm = np.cross(lpinky, lindex)
         j4 = angle(arm_norm, hand_norm)
         # print(f"j4: {j4}")
+        confidence_bool[3] = all(val > 0.8 for val in [joint_list[row][3] for row in [11, 13, 15, 17, 19]])
 
         # NOTE: J5 is not correct because mediapipe can't detect hand well.
         j5 = angle(lpinky, lindex)
         # print(f"j5: {j5}")
+        confidence_bool[4] = all(val > 0.8 for val in [joint_list[row][3] for row in [15, 17, 19]])
 
         result = [round(j1, 3), round(j2, 3), round(j3, 3), round(j4, 3), round(j5, 3)]
         # Calibration for Unity
         result = [a + b for (a, b) in
                   zip(result, [0, 0, math.radians(-90), 0, 0])]
         result = [round(i, 3) for i in result]
-        return result
+        return result, confidence_bool
 
     def calculate_old(self, joint_list: list):
         """
@@ -668,22 +730,19 @@ class PoseDetection:
         success, img, result = self.read_image_and_process()
         if not success:
             return False, None
+        self.draw_landmarks(img, result.pose_landmarks)
         clear_screen()
 
         # If mediapipe detects landmarks successfully.
         if result.pose_landmarks:
-            # # Draw the landmarks into the video.
-            # mp.solutions.drawing_utils.draw_landmarks(img, result.pose_landmarks,
-            #                                           mp.solutions.pose.POSE_CONNECTIONS)
-            self.draw_landmarks(img, result.pose_landmarks)
             # Make pose_landmarks become 2D array.
             joint_list = landmark2list(result)
-            positions = self.calculation(joint_list)
+            positions, confidence_bool = self.calculation(joint_list)
 
             # Calculate time
             cur_time = time.time()
             fps = 1 / (cur_time - self.prev_time)
-            print_landmark(self.fps_cnt, fps, joint_list, positions)
+            print_landmark(self.fps_cnt, fps, joint_list, positions, confidence_bool)
             self.prev_time = cur_time
 
             return True, positions
@@ -692,7 +751,7 @@ class PoseDetection:
             cur_time = time.time()
             fps = 1 / (cur_time - self.prev_time)
             print(f"FPS Count: {self.fps_cnt} at FPS: {fps: .02f}Hz")
-            print("Error, pose detection failed.", file=sys.stderr)
+            print(f"{Bcolors.FAIL}Error, pose detection failed.{Bcolors.ENDC}", file=sys.stderr)
             self.prev_time = cur_time
 
             return False, None
