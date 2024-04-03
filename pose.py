@@ -90,6 +90,16 @@ def print_landmark(fps_cnt: int, fps: float, joint_list: list, left_positions: l
             print(']')
         else:
             print('\t', end='')
+    print("Left trajectory angles (deg):\t[", end='')
+    for i in range(len(left_positions)):
+        if not confidence_bool[i]:
+            print(f"{Bcolors.WARNING}{math.degrees(left_positions[i])}{Bcolors.ENDC}", end='')
+        else:
+            print(f"{math.degrees(left_positions[i])}", end='')
+        if i == len(left_positions) - 1:
+            print(']')
+        else:
+            print('\t', end='')
 
 
 def dotproduct(v1: np.ndarray, v2: np.ndarray) -> float:
@@ -508,9 +518,14 @@ class PoseDetection:
         confidence_bool[4] = all(val > 0.8 for val in [joint_list[row][3] for row in [15, 17, 19]])
 
         result = [round(j1, 3), round(j2, 3), round(j3, 3), round(j4, 3), round(j5, 3)]
-        # Calibration for Unity
-        result = [a + b for (a, b) in
-                  zip(result, [0, 0, math.radians(-90), 0, 0])]
+        # # Calibration for Unity
+        # result = [a + b for (a, b) in
+        #           zip(result, [0, 0, math.radians(-90), 0, 0])]
+        # result = [round(i, 3) for i in result]
+        # Calibration for real robot arm
+        # Use y = mx + k, and then trial and error.
+        result[1] = math.radians(-15 / 16 * math.degrees(result[1]) + 120)
+        result[2] = math.radians(-23 / 12 * math.degrees(result[2]) + 940 / 3)
         result = [round(i, 3) for i in result]
         return result, confidence_bool
 
