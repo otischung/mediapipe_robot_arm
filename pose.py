@@ -533,14 +533,14 @@ class PoseDetection:
 
         # TODO: Complete J3
         arm_norm = np.cross(-larm, lforearm)
-        hand_norm = np.cross(lpinky, lindex)
+        shoulder_norm = np.cross(larm, vector_cal_idx(joint_list, 11, 24))
         rarm_norm = np.cross(-rarm, rforearm)
-        rhand_norm = np.cross(rpinky, rindex)
-        j3 = angle(arm_norm, hand_norm)
-        j3r = angle(rarm_norm, rhand_norm)
+        rshoulder_norm = np.cross(rarm, vector_cal_idx(joint_list, 12, 23))
+        j3 = angle(arm_norm, shoulder_norm)
+        j3r = angle(rarm_norm, rshoulder_norm)
         # print(f"j3: {j3}")
-        confidence_bool[2] = all(val > 0.8 for val in [joint_list[row][3] for row in [11, 13, 15, 17, 19]])
-        right_confidence_bool[2] = all(val > 0.8 for val in [joint_list[row][3] for row in [12, 14, 16, 18, 20]])
+        confidence_bool[2] = all(val > 0.8 for val in [joint_list[row][3] for row in [11, 13, 15, 24]])
+        right_confidence_bool[2] = all(val > 0.8 for val in [joint_list[row][3] for row in [12, 14, 16, 23]])
 
         j4 = angle(-larm, lforearm)
         j4r = angle(-rarm, rforearm)
@@ -567,11 +567,17 @@ class PoseDetection:
 
         # Calibration for real robot arm
         # Use y = mx + k, and then trial and error.
-        result[1] = math.radians(-15 / 16 * math.degrees(result[1]) + 120)
-        result[2] = math.radians(-23 / 12 * math.degrees(result[2]) + 940 / 3)
+        result[0] = math.radians(180 - math.degrees(result[0]))
+        result[1] = math.radians(18 / 13 * math.degrees(result[1]))
+        result[2] = math.radians(27 / 16 * math.degrees(result[2]) - 45 / 8)
+        result[3] = math.radians(3 / 2 * math.degrees(result[3]) - 45)
         result = [round(i, 3) for i in result]
-        resultr[1] = math.radians(-15 / 16 * math.degrees(resultr[1]) + 120)
-        resultr[2] = math.radians(-23 / 12 * math.degrees(resultr[2]) + 940 / 3)
+        # resultr[1] = math.radians(180 - math.degrees(resultr[1]))
+        # resultr[2] = math.radians(180 - math.degrees(resultr[2]))
+        # resultr[3] = math.radians(180 - math.degrees(resultr[3]))
+        resultr[1] = math.radians(-20 / 13 * math.degrees(resultr[1]) + 180)
+        resultr[2] = math.radians(-27 / 16 * math.degrees(resultr[2]) + 1485 / 8)
+        resultr[3] = math.radians(-24 / 13 * math.degrees(resultr[3]) + 3600 / 13)
         resultr = [round(i, 3) for i in resultr]
 
         return result, confidence_bool, resultr, right_confidence_bool
