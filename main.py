@@ -1,7 +1,10 @@
-import pose
-import websocket
 import argparse
 import asyncio
+from bcolors import Bcolors
+import pose
+import sys
+import websocket
+import websockets
 
 
 class Controller:
@@ -25,18 +28,23 @@ class Controller:
     run(self):
         The main function of the controller.
     """
+
     def __init__(self, pose, websocket):
         self.pose = pose
         self.websocket = websocket
         self.positions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self.velocities = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.positions_right = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.velocities_right = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
     async def run(self):
         await self.websocket.connect_websocket()
         await self.websocket.advertise_topic()
         while True:
-            success, self.positions = self.pose.main()
-            await self.websocket.publish_trajectory_point(self.positions, self.velocities)
+            success, self.positions, _, self.positions_right, _ = self.pose.main()
+            await self.websocket.publish_trajectory_point(is_left=True, pos=self.positions, vel=self.velocities)
+            await self.websocket.publish_trajectory_point(is_left=False, pos=self.positions_right,
+                                                          vel=self.velocities_right)
             await asyncio.sleep(self.websocket.interval)
 
 
@@ -53,4 +61,14 @@ if __name__ == "__main__":
     view = websocket.TrajectoryPublisher(args.ip, args.port, args.interval)
     controller = Controller(model, view)
 
-    asyncio.get_event_loop().run_until_complete(controller.run())
+    try:
+        asyncio.get_event_loop().run_until_complete(controller.run())
+    except websockets.exceptions.ConnectionClosedError as e:
+        print(f"{Bcolors.FAIL}{e}{Bcolors.ENDC}", file=sys.stderr)
+        print(f"{Bcolors.FAIL}Error: Connection of ROS bridge is closed unexpectedly{Bcolors.ENDC}", file=sys.stderr)
+        quit(1)
+    except ConnectionRefusedError as e:
+        print(f"{Bcolors.FAIL}{e}{Bcolors.ENDC}", file=sys.stderr)
+        print(f"{Bcolors.FAIL}Error: Connection is refused, please check the connection of ROS bridge{Bcolors.ENDC}",
+              file=sys.stderr)
+        quit(1)

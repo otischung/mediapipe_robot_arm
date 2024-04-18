@@ -47,7 +47,8 @@ def clear_screen():
         os.system("clear")
 
 
-def print_landmark(fps_cnt: int, fps: float, joint_list: list, left_positions: list, confidence_bool: list):
+def print_landmark(fps_cnt: int, fps: float, joint_list: list, left_positions: list, left_confidence_bool: list,
+                   right_positions: list, right_confidence_bool: list):
     """
     This function prints the detected 33 landmarks.
 
@@ -61,8 +62,12 @@ def print_landmark(fps_cnt: int, fps: float, joint_list: list, left_positions: l
         The list of landmarks
     left_positions: list
         The list of trajectory angles for left hand.
-    confidence_bool: list
-        The list of the confidence scores for each trajectory.
+    left_confidence_bool: list
+        The list of the left confidence scores for each trajectory.
+    right_positions: list
+        The list of trajectory angles for right hand.
+    right_confidence_bool: list
+        The list of the right confidence scores for each trajectory.
     """
     print(f"FPS Count: {fps_cnt} at FPS: {fps: .02f}Hz")
     print("------------------------------------------------------------------")
@@ -82,7 +87,7 @@ def print_landmark(fps_cnt: int, fps: float, joint_list: list, left_positions: l
             print(Bcolors.ENDC, end='')
     print("Left trajectory angles:\t\t[", end='')
     for i in range(len(left_positions)):
-        if not confidence_bool[i]:
+        if not left_confidence_bool[i]:
             print(f"{Bcolors.WARNING}{left_positions[i]}{Bcolors.ENDC}", end='')
         else:
             print(f"{left_positions[i]}", end='')
@@ -92,11 +97,31 @@ def print_landmark(fps_cnt: int, fps: float, joint_list: list, left_positions: l
             print('\t', end='')
     print("Left trajectory angles (deg):\t[", end='')
     for i in range(len(left_positions)):
-        if not confidence_bool[i]:
-            print(f"{Bcolors.WARNING}{math.degrees(left_positions[i])}{Bcolors.ENDC}", end='')
+        if not left_confidence_bool[i]:
+            print(f"{Bcolors.WARNING}{round(math.degrees(left_positions[i]), 3)}{Bcolors.ENDC}", end='')
         else:
-            print(f"{math.degrees(left_positions[i])}", end='')
+            print(f"{round(math.degrees(left_positions[i]), 3)}", end='')
         if i == len(left_positions) - 1:
+            print(']')
+        else:
+            print('\t', end='')
+    print("Right trajectory angles:\t[", end='')
+    for i in range(len(right_positions)):
+        if not right_confidence_bool[i]:
+            print(f"{Bcolors.WARNING}{right_positions[i]}{Bcolors.ENDC}", end='')
+        else:
+            print(f"{right_positions[i]}", end='')
+        if i == len(right_positions) - 1:
+            print(']')
+        else:
+            print('\t', end='')
+    print("Right trajectory angles (deg):\t[", end='')
+    for i in range(len(right_positions)):
+        if not right_confidence_bool[i]:
+            print(f"{Bcolors.WARNING}{round(math.degrees(right_positions[i]), 3)}{Bcolors.ENDC}", end='')
+        else:
+            print(f"{round(math.degrees(right_positions[i]), 3)}", end='')
+        if i == len(right_positions) - 1:
             print(']')
         else:
             print('\t', end='')
@@ -322,10 +347,6 @@ class PoseDetection:
     prev_time: float
         The time format defined by time.time().
         This is used to store the previous time stamp.
-    confidence_bool: list[bool, bool, bool, bool, bool]
-        This Python list is used to record whether the visibility of all corresponding trajectory points'
-        mediapipe landmarks needing computation is greater than 0.8.
-        If the condition is met, then it is marked as True.
     cap: cv2.VideoCapture
         The cv2 video capturing object.
     pose:
@@ -426,7 +447,7 @@ class PoseDetection:
             cv2.destroyAllWindows()
             exit(0)
 
-    def calculation(self, joint_list: list) -> tuple[list, list]:
+    def calculation(self, joint_list: list) -> tuple[list, list, list, list]:
         """
         Calculate the angle of the trajectory from the given joint list.
 
@@ -437,10 +458,16 @@ class PoseDetection:
 
         Returns
         -------
-        out: tuple[list, list]
+        out: tuple[list, list, list, list]
             The trajectory angles in radian and the confidence for each trajectory.
+            [left_angle, left_confidence, right_angle, right_confidence]
+        confidence_bool: list[bool, bool, bool, bool, bool]
+            This Python list is used to record whether the visibility of all corresponding trajectory points'
+            mediapipe landmarks needing computation is greater than 0.8.
+            If the condition is met, then it is marked as True.
         """
         confidence_bool = [False, False, False, False, False]
+        right_confidence_bool = [False, False, False, False, False]
 
         # The meaning of the index is written in the doc string of the function
         # ``get_landmark_loc``
@@ -489,50 +516,70 @@ class PoseDetection:
 
         # J1 = arm - proj_{body_norm_norm}(arm)
         j1_vec = larm - (np.dot(larm, body_norm_norm) / (length(body_norm_norm) ** 2) * body_norm_norm)
+        j1r_vec = rarm - (np.dot(rarm, -body_norm_norm) / (length(body_norm_norm) ** 2) * -body_norm_norm)
         # Setting zero degree to point downward.
         j1 = angle(j1_vec, np.array([0, 1, 0]))
+        j1r = angle(j1r_vec, np.array([0, 1, 0]))
         # print(f"j1_vec: {j1_vec}")
         # print(f"j1: {j1}")
 
         j2 = angle(j1_vec, larm)
+        j2r = angle(j1r_vec, rarm)
         # print(f"j2: {j2}")
         confidence_bool[0] = all(val > 0.8 for val in [joint_list[row][3] for row in [11, 12, 13, 23, 24]])
         confidence_bool[1] = confidence_bool[0]
+        right_confidence_bool[0] = all(val > 0.8 for val in [joint_list[row][3] for row in [11, 12, 14, 23, 24]])
+        right_confidence_bool[1] = right_confidence_bool[0]
 
-        j3 = angle(-larm, lforearm)
-        # print(f"-larm: {-larm}")
-        # print(f"lforarm: {lforearm}")
-        # print(f"j3: {j3}")
-        confidence_bool[2] = all(val > 0.8 for val in [joint_list[row][3] for row in [11, 13, 15]])
-
-        # NOTE: J4 is not correct because mediapipe can't detect hand well.
+        # TODO: Complete J3
         arm_norm = np.cross(-larm, lforearm)
         hand_norm = np.cross(lpinky, lindex)
-        j4 = angle(arm_norm, hand_norm)
+        rarm_norm = np.cross(-rarm, rforearm)
+        rhand_norm = np.cross(rpinky, rindex)
+        j3 = angle(arm_norm, hand_norm)
+        j3r = angle(rarm_norm, rhand_norm)
+        # print(f"j3: {j3}")
+        confidence_bool[2] = all(val > 0.8 for val in [joint_list[row][3] for row in [11, 13, 15, 17, 19]])
+        right_confidence_bool[2] = all(val > 0.8 for val in [joint_list[row][3] for row in [12, 14, 16, 18, 20]])
+
+        j4 = angle(-larm, lforearm)
+        j4r = angle(-rarm, rforearm)
+        # print(f"-larm: {-larm}")
+        # print(f"lforarm: {lforearm}")
         # print(f"j4: {j4}")
-        confidence_bool[3] = all(val > 0.8 for val in [joint_list[row][3] for row in [11, 13, 15, 17, 19]])
+        confidence_bool[3] = all(val > 0.8 for val in [joint_list[row][3] for row in [11, 13, 15]])
+        right_confidence_bool[3] = all(val > 0.8 for val in [joint_list[row][3] for row in [12, 14, 16]])
 
         # NOTE: J5 is not correct because mediapipe can't detect hand well.
         j5 = angle(lpinky, lindex)
+        j5r = angle(rpinky, rindex)
         # print(f"j5: {j5}")
         confidence_bool[4] = all(val > 0.8 for val in [joint_list[row][3] for row in [15, 17, 19]])
+        right_confidence_bool[4] = all(val > 0.8 for val in [joint_list[row][3] for row in [16, 18, 20]])
 
         result = [round(j1, 3), round(j2, 3), round(j3, 3), round(j4, 3), round(j5, 3)]
+        resultr = [round(j1r, 3), round(j2r, 3), round(j3r, 3), round(j4r, 3), round(j5r, 3)]
+
         # # Calibration for Unity
         # result = [a + b for (a, b) in
         #           zip(result, [0, 0, math.radians(-90), 0, 0])]
         # result = [round(i, 3) for i in result]
+
         # Calibration for real robot arm
         # Use y = mx + k, and then trial and error.
         result[1] = math.radians(-15 / 16 * math.degrees(result[1]) + 120)
         result[2] = math.radians(-23 / 12 * math.degrees(result[2]) + 940 / 3)
         result = [round(i, 3) for i in result]
-        return result, confidence_bool
+        resultr[1] = math.radians(-15 / 16 * math.degrees(resultr[1]) + 120)
+        resultr[2] = math.radians(-23 / 12 * math.degrees(resultr[2]) + 940 / 3)
+        resultr = [round(i, 3) for i in resultr]
+
+        return result, confidence_bool, resultr, right_confidence_bool
 
     def calculate_old(self, joint_list: list):
         """
         Calculate the angle of the trajectory from the given joint list.
-        This method is provided by the senior member.
+        This method is provided by the senior member, and is shown in ``sample_code.py``.
 
         Parameters
         ----------
@@ -732,15 +779,18 @@ class PoseDetection:
 
             return result
 
-    def main(self) -> tuple[bool, None | list]:
+    def main(self) -> tuple[bool, None | list, None | list, None | list, None | list]:
         """
         This function provides the procedures to calculate the trajectory angles from the "single frame".
 
         Returns
         -------
-        out: tuple[bool, None | list]
+        out: tuple[bool, None | list, None | list, None | list, None | list]
             1. True if the function should keep track of the pose, False otherwise.
-            2. The list of the positions.
+            2. The list of the left positions.
+            3. The list of the left confidence.
+            4. The list of the right positions.
+            5. The list of the right confidence.
         """
         success, img, result = self.read_image_and_process()
         if not success:
@@ -752,15 +802,16 @@ class PoseDetection:
         if result.pose_landmarks:
             # Make pose_landmarks become 2D array.
             joint_list = landmark2list(result)
-            positions, confidence_bool = self.calculation(joint_list)
+            positions, confidence_bool, right_positions, right_confidence_bool = self.calculation(joint_list)
 
             # Calculate time
             cur_time = time.time()
             fps = 1 / (cur_time - self.prev_time)
-            print_landmark(self.fps_cnt, fps, joint_list, positions, confidence_bool)
+            print_landmark(self.fps_cnt, fps, joint_list, positions, confidence_bool, right_positions,
+                           right_confidence_bool)
             self.prev_time = cur_time
 
-            return True, positions
+            return True, positions, confidence_bool, right_positions, right_confidence_bool
         else:
             # Calculate time
             cur_time = time.time()
@@ -769,7 +820,7 @@ class PoseDetection:
             print(f"{Bcolors.FAIL}Error, pose detection failed.{Bcolors.ENDC}", file=sys.stderr)
             self.prev_time = cur_time
 
-            return False, None
+            return False, None, None, None, None
 
     def run(self):
         """
