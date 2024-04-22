@@ -1,4 +1,5 @@
 import absl.logging
+import argparse
 import cv2
 import math
 import mediapipe as mp
@@ -841,5 +842,9 @@ class PoseDetection:
 
 
 if __name__ == '__main__':
-    pose_detection = PoseDetection(0)
+    parser = argparse.ArgumentParser(description="Detect poses location using mediapipe.")
+    parser.add_argument("-c", "--camera", type=int, default=0, help="The ID of the camera. e.g. 0 for /dev/video0.")
+    args = parser.parse_args()
+
+    pose_detection = PoseDetection(args.camera)
     pose_detection.run()
