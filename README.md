@@ -28,29 +28,29 @@ to do calibration.
 
 #### J2
 
-![j1](https://latex.codecogs.com/svg.image?\begin{cases}0=0m&plus;k\\90=65m&plus;k\end{cases}\Rightarrow\begin{cases}m=18/13\\k=0\end{cases})
+![j1](https://latex.codecogs.com/svg.image?%5Cbegin%7Bcases%7D0=0m&plus;k%5C%5C90=65m&plus;k%5Cend%7Bcases%7D%5CRightarrow%5Cbegin%7Bcases%7Dm=18/13%5C%5Ck=0%5Cend%7Bcases%7D)
 
 #### J3
 
-![j3](https://latex.codecogs.com/svg.image?\begin{cases}45=30m&plus;k\\180=110m&plus;k\end{cases}\Rightarrow\begin{cases}m=27/16\\k=-45/8\end{cases})
+![j3](https://latex.codecogs.com/svg.image?%5Cbegin%7Bcases%7D45=30m&plus;k%5C%5C180=110m&plus;k%5Cend%7Bcases%7D%5CRightarrow%5Cbegin%7Bcases%7Dm=27/16%5C%5Ck=-45/8%5Cend%7Bcases%7D)
 
 #### J4
 
-![j4](https://latex.codecogs.com/svg.image?\begin{cases}60=70m&plus;k\\180=150m&plus;k\end{cases}\Rightarrow\begin{cases}m=3/2\\k=-45\end{cases})
+![j4](https://latex.codecogs.com/svg.image?%5Cbegin%7Bcases%7D60=70m&plus;k%5C%5C180=150m&plus;k%5Cend%7Bcases%7D%5CRightarrow%5Cbegin%7Bcases%7Dm=3/2%5C%5Ck=-45%5Cend%7Bcases%7D)
 
 ### Right
 
 #### J2
 
-![j2r](https://latex.codecogs.com/svg.image?\begin{cases}180=0m&plus;k\\80=65m&plus;k\end{cases}\Rightarrow\begin{cases}m=-20/13\\k=180\end{cases})
+![j2r](https://latex.codecogs.com/svg.image?%5Cbegin%7Bcases%7D180=0m&plus;k%5C%5C80=65m&plus;k%5Cend%7Bcases%7D%5CRightarrow%5Cbegin%7Bcases%7Dm=-20/13%5C%5Ck=180%5Cend%7Bcases%7D)
 
 #### J3
 
-![j3r](https://latex.codecogs.com/svg.image?\begin{cases}0=110m&plus;k\\135=30m&plus;k\end{cases}\Rightarrow\begin{cases}m=-27/16\\k=1485/8\end{cases})
+![j3r](https://latex.codecogs.com/svg.image?%5Cbegin%7Bcases%7D0=110m&plus;k%5C%5C135=30m&plus;k%5Cend%7Bcases%7D%5CRightarrow%5Cbegin%7Bcases%7Dm=-27/16%5C%5Ck=1485/8%5Cend%7Bcases%7D)
 
 #### J4
 
-![j4r](https://latex.codecogs.com/svg.image?\begin{cases}120=85m&plus;k\\0=150m&plus;k\end{cases}\Rightarrow\begin{cases}m=-24/13\\k=3600/13\end{cases})
+![j4r](https://latex.codecogs.com/svg.image?%5Cbegin%7Bcases%7D120=85m&plus;k%5C%5C0=150m&plus;k%5Cend%7Bcases%7D%5CRightarrow%5Cbegin%7Bcases%7Dm=-24/13%5C%5Ck=3600/13%5Cend%7Bcases%7D)
 
 
 
