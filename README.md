@@ -58,6 +58,8 @@ Below are the devices we need.
 
 4. In the computing device, source the virtual environment, and run `python main.py`.
 
+5. To exit the code, select the video window and then click `esc`.
+
 
 
 - You can set the parameters in `main.py`.
