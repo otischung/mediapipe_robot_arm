@@ -1,5 +1,11 @@
 # Mediapipe Robot Arm
 
+## Project Architecture
+
+![robot_arm_architecture.drawio](D:\workspace\screamlab\mediapipe_robot_arm\img\robot_arm_architecture.drawio.svg)
+
+
+
 ## Note
 
 We don't consider the confidence of every point. This program will always publish the angles.
